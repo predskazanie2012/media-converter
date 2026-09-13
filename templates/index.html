@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MediaConverter — Видео в Аудио и Текст</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-512.png') }}">
+  <meta name="theme-color" content="#7c3aed">
+  <link rel="manifest" href="{{ url_for('static', filename='site.webmanifest') }}">
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <style>
+    /* ── Variables ─────────────────────────────────────────────────── */
+    :root {
+      --bg:           #0d0d1a;
+      --bg2:          #13132a;
+      --card:         rgba(255,255,255,0.04);
+      --border:       rgba(255,255,255,0.08);
+      --primary:      #7c3aed;
+      --primary-l:    #a78bfa;
+      --secondary:    #3b82f6;
+      --success:      #10b981;
+      --danger:       #ef4444;
+      --text:         #e2e8f0;
+      --muted:        #94a3b8;
+      --radius:       13px;
+    }
+
+    /* ── Reset & Base ──────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* animated gradient orbs */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse 60% 50% at 15% 20%, rgba(124,58,237,.18) 0%, transparent 70%),
+        radial-gradient(ellipse 50% 40% at 85% 80%, rgba(59,130,246,.12) 0%, transparent 70%);
+      animation: orbs 10s ease-in-out infinite alternate;
+      z-index: 0; pointer-events: none;
+    }
+    @keyframes orbs {
+      from { transform: scale(1); }
+      to   { transform: scale(1.08) rotate(3deg); }
+    }
+
+    /* ── Layout ────────────────────────────────────────────────────── */
+    .wrap {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 0 20px 80px;
+      position: relative; z-index: 1;
+    }
+
+    /* ── Header ────────────────────────────────────────────────────── */
+    header {
+      text-align: center;
+      padding: 52px 20px 40px;
+    }
+    .logo {
+      display: inline-flex; align-items: center; gap: 14px;
+      margin-bottom: 14px;
+    }
+    .logo-icon {
+      width: 54px; height: 54px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      border-radius: 15px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px;
+      box-shadow: 0 8px 32px rgba(124,58,237,.45);
+    }
+    h1 {
+      font-size: 2.3rem; font-weight: 800;
+      background: linear-gradient(135deg, #a78bfa, #60a5fa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .subtitle { color: var(--muted); font-size: .95rem; margin-top: 6px; }
+
+    /* ── Tabs ──────────────────────────────────────────────────────── */
+    .tabs {
+      display: flex;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 4px;
+      margin-bottom: 22px;
+    }
+    .tab-btn {
+      flex: 1; padding: 11px 18px;
+      border: none; background: transparent;
+      color: var(--muted); border-radius: 10px;
+      cursor: pointer; font-size: .92rem; font-weight: 500;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: all .22s ease;
+    }
+    .tab-btn.active {
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(124,58,237,.4);
+    }
+    .tab-btn:hover:not(.active) {
+      color: var(--text); background: rgba(255,255,255,.05);
+    }
+
+    /* ── Settings Panel ────────────────────────────────────────────── */
+    .settings {
+      display: flex; flex-wrap: wrap; gap: 16px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      margin-bottom: 18px;
+    }
+    .sgroup { flex: 1; min-width: 150px; }
+    .slabel {
+      font-size: .75rem; font-weight: 700; letter-spacing: .06em;
+      color: var(--muted); text-transform: uppercase; margin-bottom: 7px;
+    }
+    select {
+      width: 100%; padding: 9px 12px;
+      background: rgba(255,255,255,.06);
+      border: 1px solid var(--border); border-radius: 8px;
+      color: var(--text); font-size: .88rem;
+      cursor: pointer; outline: none;
+      transition: border-color .2s;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2394a3b8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 32px;
+    }
+    select:focus { border-color: var(--primary-l); }
+    select option { background: #1a1a2e; }
+
+    /* ── Drop Zone ─────────────────────────────────────────────────── */
+    .dropzone {
+      border: 2px dashed rgba(124,58,237,.35);
+      border-radius: var(--radius);
+      padding: 56px 32px;
+      text-align: center;
+      cursor: pointer;
+      transition: all .3s ease;
+      margin-bottom: 22px;
+      background: rgba(124,58,237,.03);
+      position: relative;
+      overflow: hidden;
+    }
+    .dropzone:hover, .dropzone.over {
+      border-color: var(--primary);
+      background: rgba(124,58,237,.08);
+      transform: scale(1.01);
+    }
+    .dropzone.over { box-shadow: 0 0 40px rgba(124,58,237,.25); }
+    .drop-emoji { font-size: 3rem; margin-bottom: 14px; display: block; }
+    .drop-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 6px; }
+    .drop-sub { color: var(--muted); font-size: .85rem; }
+    .pick-btn {
+      display: inline-block; margin-top: 16px;
+      padding: 9px 22px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      border-radius: 8px; color: #fff;
+      font-size: .88rem; font-weight: 500;
+      transition: opacity .2s;
+    }
+    .pick-btn:hover { opacity: .82; }
+    #file-input { display: none; }
+
+    /* ── File Queue ────────────────────────────────────────────────── */
+    #queue { display: flex; flex-direction: column; gap: 11px; }
+
+    .fcard {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 15px 18px;
+      display: flex; align-items: center; gap: 14px;
+      animation: slideIn .28s ease;
+      position: relative; overflow: hidden;
+      transition: border-color .3s, background .3s;
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fcard.done   { border-color: rgba(16,185,129,.32); background: rgba(16,185,129,.04); }
+    .fcard.errored { border-color: rgba(239,68,68,.32);  background: rgba(239,68,68,.04); }
+
+    .ficon {
+      width: 44px; height: 44px; flex-shrink: 0;
+      border-radius: 10px;
+      background: linear-gradient(135deg, rgba(124,58,237,.28), rgba(59,130,246,.28));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.35rem;
+    }
+    .finfo { flex: 1; min-width: 0; }
+    .fname {
+      font-weight: 500; font-size: .88rem;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .fstatus { font-size: .78rem; color: var(--muted); margin-top: 3px; }
+    .fstatus.ok  { color: var(--success); }
+    .fstatus.err { color: var(--danger); }
+
+    .pbar {
+      height: 3px; background: rgba(255,255,255,.07);
+      border-radius: 2px; margin-top: 7px; overflow: hidden;
+    }
+    .pfill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary), var(--secondary));
+      border-radius: 2px; transition: width .4s ease;
+    }
+
+    .faction { flex-shrink: 0; display: flex; gap: 7px; }
+
+    /* ── Buttons ───────────────────────────────────────────────────── */
+    .btn {
+      padding: 7px 14px; border-radius: 8px; border: none;
+      cursor: pointer; font-size: .8rem; font-weight: 500;
+      display: inline-flex; align-items: center; gap: 5px;
+      text-decoration: none; transition: all .18s;
+    }
+    .btn-dl {
+      background: rgba(16,185,129,.14); color: var(--success);
+      border: 1px solid rgba(16,185,129,.28);
+    }
+    .btn-dl:hover { background: rgba(16,185,129,.26); }
+    .btn-eye {
+      background: rgba(255,255,255,.06); color: var(--muted);
+      border: 1px solid var(--border);
+    }
+    .btn-eye:hover { background: rgba(255,255,255,.12); color: var(--text); }
+
+    /* ── Modal ─────────────────────────────────────────────────────── */
+    .overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.72);
+      backdrop-filter: blur(5px);
+      z-index: 200; align-items: center; justify-content: center;
+    }
+    .overlay.show { display: flex; }
+    .modal {
+      background: #191930; border: 1px solid var(--border);
+      border-radius: 16px; padding: 26px;
+      max-width: 680px; width: 92%;
+      max-height: 82vh; display: flex; flex-direction: column;
+      box-shadow: 0 24px 80px rgba(0,0,0,.6);
+    }
+    .modal-hd {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 14px;
+    }
+    .modal-title { font-weight: 600; font-size: 1rem; }
+    .modal-x {
+      background: none; border: none; color: var(--muted);
+      cursor: pointer; font-size: 1.1rem; padding: 4px; line-height: 1;
+    }
+    .modal-body {
+      flex: 1; overflow-y: auto;
+      background: rgba(0,0,0,.28); border: 1px solid var(--border);
+      border-radius: 8px; padding: 14px;
+      font-size: .88rem; line-height: 1.75;
+      white-space: pre-wrap; color: var(--text);
+    }
+    .modal-ft {
+      display: flex; gap: 10px; margin-top: 14px; justify-content: flex-end;
+    }
+    .btn-copy {
+      background: rgba(255,255,255,.07); color: var(--muted);
+      border: 1px solid var(--border);
+    }
+    .btn-copy:hover { background: rgba(255,255,255,.13); color: var(--text); }
+    .btn-mdl-dl {
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: #fff;
+    }
+    .btn-mdl-dl:hover { opacity: .85; }
+
+    /* ── Checkbox ──────────────────────────────────────────────────── */
+    .fcheck-wrap {
+      flex-shrink: 0;
+      display: flex; align-items: center;
+      padding: 0 2px 0 0;
+      cursor: pointer;
+    }
+    .fcheck {
+      width: 18px; height: 18px;
+      cursor: pointer;
+      accent-color: var(--primary);
+    }
+    .fcheck:disabled { opacity: .25; cursor: default; }
+
+    /* ── ZIP bar ───────────────────────────────────────────────────── */
+    .zip-bar {
+      display: none;
+      align-items: center; justify-content: space-between; gap: 12px;
+      background: rgba(124,58,237,.1);
+      border: 1px solid rgba(124,58,237,.28);
+      border-radius: var(--radius);
+      padding: 13px 18px;
+      margin-bottom: 14px;
+      animation: slideIn .28s ease;
+    }
+    .zip-bar.show { display: flex; }
+    .zip-info { font-size: .88rem; color: var(--primary-l); white-space: nowrap; }
+    .zip-info strong { color: var(--text); }
+    .zip-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .btn-sel {
+      background: rgba(255,255,255,.07); color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 6px 12px; border-radius: 7px;
+      font-size: .8rem; font-weight: 500;
+      cursor: pointer; transition: all .18s;
+    }
+    .btn-sel:hover { background: rgba(255,255,255,.13); color: var(--text); }
+    .btn-zip {
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: #fff; border: none;
+      padding: 9px 20px; border-radius: 8px;
+      font-size: .88rem; font-weight: 600;
+      cursor: pointer; display: inline-flex; align-items: center; gap: 7px;
+      transition: opacity .2s, transform .15s;
+      white-space: nowrap;
+    }
+    .btn-zip:hover { opacity: .85; transform: translateY(-1px); }
+    .btn-zip:disabled { opacity: .5; cursor: default; transform: none; }
+
+    /* ── Spinner ───────────────────────────────────────────────────── */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spin {
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,.15);
+      border-top-color: var(--primary-l);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+
+    /* ── Scrollbar ─────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.14); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.24); }
+
+    /* ── Responsive ────────────────────────────────────────────────── */
+    @media (max-width: 580px) {
+      h1 { font-size: 1.65rem; }
+      .tab-btn .tab-label { display: none; }
+      .settings { flex-direction: column; }
+      .dropzone { padding: 40px 20px; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🎬</div>
+      <h1>MediaConverter</h1>
+    </div>
+    <p class="subtitle">Конвертируй видео в аудио и в текст — локально, без облаков</p>
+  </header>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" id="tab-audio" onclick="switchTab('audio')">
+      <i class="fas fa-music"></i>
+      <span class="tab-label">Видео → Аудио</span>
+    </button>
+    <button class="tab-btn" id="tab-text" onclick="switchTab('text')">
+      <i class="fas fa-file-lines"></i>
+      <span class="tab-label">Видео / Аудио → Текст</span>
+    </button>
+  </div>
+
+  <!-- Settings: Audio -->
+  <div class="settings" id="set-audio">
+    <div class="sgroup">
+      <div class="slabel">Формат аудио</div>
+      <select id="audio-fmt">
+        <option value="mp3">MP3 — универсальный</option>
+        <option value="wav">WAV — без сжатия</option>
+        <option value="ogg">OGG — открытый</option>
+        <option value="flac">FLAC — lossless</option>
+        <option value="m4a">M4A — для Apple</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Settings: Text -->
+  <div class="settings" id="set-text" style="display:none">
+    <div class="sgroup">
+      <div class="slabel">Язык речи</div>
+      <select id="txt-lang">
+        <option value="auto">Авто (определить)</option>
+        <option value="ru">Русский</option>
+        <option value="en">English</option>
+        <option value="uk">Українська</option>
+        <option value="de">Deutsch</option>
+        <option value="fr">Français</option>
+        <option value="es">Español</option>
+        <option value="zh">中文</option>
+        <option value="ja">日本語</option>
+        <option value="ko">한국어</option>
+      </select>
+    </div>
+    <div class="sgroup">
+      <div class="slabel">Модель Whisper</div>
+      <select id="txt-model">
+        <option value="tiny">Tiny — очень быстро</option>
+        <option value="base" selected>Base — баланс ⭐</option>
+        <option value="small">Small — точнее</option>
+        <option value="medium">Medium — высокая точность</option>
+        <option value="large">Large — максимум</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Drop Zone -->
+  <div class="dropzone" id="dropzone"
+       ondragover="onDragOver(event)" ondragleave="onDragLeave(event)"
+       ondrop="onDrop(event)" onclick="document.getElementById('file-input').click()">
+    <span class="drop-emoji">📂</span>
+    <div class="drop-title">Перетащи файлы сюда</div>
+    <div class="drop-sub" id="drop-hint">
+      MP4, MKV, AVI, MOV, WebM, FLV и другие видеоформаты
+    </div>
+    <div class="pick-btn">Выбрать файлы</div>
+    <input type="file" id="file-input" multiple accept="video/*"
+           onchange="handleFiles(this.files)" />
+  </div>
+
+  <!-- ZIP download bar (appears when ≥1 file done) -->
+  <div class="zip-bar" id="zip-bar">
+    <span class="zip-info">
+      Выбрано: <strong id="zip-count">0</strong> из <strong id="zip-total">0</strong> готово
+    </span>
+    <div class="zip-actions">
+      <button class="btn-sel" onclick="selectAllFiles(true)">Все</button>
+      <button class="btn-sel" onclick="selectAllFiles(false)">Снять</button>
+      <button class="btn-zip" id="zip-btn" onclick="downloadZip()">
+        <i class="fas fa-file-zipper"></i> Скачать ZIP
+      </button>
+    </div>
+  </div>
+
+  <!-- Queue -->
+  <div id="queue"></div>
+
+</div><!-- /wrap -->
+
+<!-- Text Preview Modal -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-hd">
+      <span class="modal-title" id="m-title">Результат</span>
+      <button class="modal-x" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="m-body"></div>
+    <div class="modal-ft">
+      <button class="btn btn-copy" onclick="copyText()">
+        <i class="fas fa-copy"></i> Копировать
+      </button>
+      <a class="btn btn-mdl-dl" id="m-dl" href="#">
+        <i class="fas fa-download"></i> Скачать .txt
+      </a>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let mode = 'audio';
+const textResults = {};          // uid → { filename, text }
+const doneFilesMap = new Map();  // uid → result filename (for ZIP)
+
+const $ = id => document.getElementById(id);
+const DONE_SEL = '.fcheck:not(:disabled)';
+
+// ── Tab switching ──────────────────────────────────────────────────────────
+function switchTab(tab) {
+  mode = tab;
+  $('tab-audio').classList.toggle('active', tab === 'audio');
+  $('tab-text').classList.toggle('active', tab === 'text');
+  $('set-audio').style.display = tab === 'audio' ? 'flex' : 'none';
+  $('set-text').style.display  = tab === 'text'  ? 'flex' : 'none';
+
+  const input = $('file-input');
+  const hint  = $('drop-hint');
+  if (tab === 'audio') {
+    input.accept = 'video/*';
+    hint.textContent = 'MP4, MKV, AVI, MOV, WebM, FLV и другие видеоформаты';
+  } else {
+    input.accept = 'video/*,audio/*';
+    hint.textContent = 'Видео (MP4, MKV…) или аудио (MP3, WAV, OGG, FLAC…)';
+  }
+}
+
+// ── Drag & Drop ────────────────────────────────────────────────────────────
+function onDragOver(e)  { e.preventDefault(); $('dropzone').classList.add('over'); }
+function onDragLeave()  { $('dropzone').classList.remove('over'); }
+function onDrop(e) {
+  e.preventDefault();
+  $('dropzone').classList.remove('over');
+  handleFiles(e.dataTransfer.files);
+}
+
+// ── File handling ──────────────────────────────────────────────────────────
+function handleFiles(files) {
+  [...files].forEach(f => startJob(f));
+  $('file-input').value = '';
+}
+
+function startJob(file) {
+  const uid = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+  const card = buildCard(uid, file.name, file.size);
+  $('queue').prepend(card);
+
+  const fd = new FormData();
+  fd.append('file', file);
+
+  let url;
+  if (mode === 'audio') {
+    url = '/convert/audio';
+    fd.append('format', document.getElementById('audio-fmt').value);
+  } else {
+    url = '/convert/text';
+    fd.append('language', document.getElementById('txt-lang').value);
+    fd.append('model', document.getElementById('txt-model').value);
+  }
+
+  setStatus(uid, 'Загрузка файла…', 5);
+
+  fetch(url, { method: 'POST', body: fd })
+    .then(r => r.json().catch(() => ({ error: `Ошибка сервера (HTTP ${r.status})` })))
+    .then(d => d.job_id ? poll(uid, d.job_id) : setError(uid, d.error || 'Неизвестная ошибка'))
+    .catch(err => setError(uid, 'Ошибка соединения: ' + err.message));
+}
+
+// ── Polling ────────────────────────────────────────────────────────────────
+function poll(uid, jobId) {
+  const iv = setInterval(() => {
+    fetch('/status/' + jobId)
+      .then(r => r.json())
+      .then(d => {
+        if (d.status === 'queued' || d.status === 'processing') {
+          setStatus(uid, d.status_text || 'Обработка…', d.progress || 10);
+        } else if (d.status === 'done') {
+          clearInterval(iv);
+          if (d.result_type === 'audio') {
+            setDone(uid, '✓ Аудио готово!', 100);
+            addDlBtn(uid, d.result_filename, 'audio');
+          } else {
+            setDone(uid, '✓ Текст получен!', 100);
+            textResults[uid] = { filename: d.result_filename, text: d.text_preview || '' };
+            addDlBtn(uid, d.result_filename, 'text');
+          }
+        } else if (d.status === 'error') {
+          clearInterval(iv);
+          setError(uid, d.error || 'Ошибка');
+        }
+      })
+      .catch(() => {});
+  }, 1400);
+}
+
+// ── Card builder ───────────────────────────────────────────────────────────
+function buildCard(uid, name, size) {
+  const div = document.createElement('div');
+  div.className = 'fcard';
+  div.id = 'c-' + uid;
+  div.innerHTML = `
+    <label class="fcheck-wrap" title="Выбрать для ZIP">
+      <input type="checkbox" class="fcheck" id="chk-${uid}" disabled onchange="updateZipBar()" />
+    </label>
+    <div class="ficon">${fileEmoji(name)}</div>
+    <div class="finfo">
+      <div class="fname">${escHtml(name)}</div>
+      <div class="fstatus" id="st-${uid}">Подготовка… · ${fmtSize(size)}</div>
+      <div class="pbar"><div class="pfill" id="pf-${uid}" style="width:0%"></div></div>
+    </div>
+    <div class="faction" id="fa-${uid}"></div>
+  `;
+  return div;
+}
+
+function setStatus(uid, text, pct) {
+  const st = $('st-' + uid), pf = $('pf-' + uid);
+  if (st) st.textContent = text;
+  if (pf) pf.style.width = pct + '%';
+}
+
+function setDone(uid, text, pct) {
+  const st = $('st-' + uid), c = $('c-' + uid), pf = $('pf-' + uid);
+  if (st) { st.textContent = text; st.className = 'fstatus ok'; }
+  if (pf) pf.style.width = pct + '%';
+  if (c)  c.classList.add('done');
+}
+
+function setError(uid, text) {
+  const st = $('st-' + uid), c = $('c-' + uid), pf = $('pf-' + uid);
+  if (st) { st.textContent = '✗ ' + text; st.className = 'fstatus err'; }
+  if (c)  c.classList.add('errored');
+  if (pf) pf.style.background = 'var(--danger)';
+}
+
+function addDlBtn(uid, filename, type) {
+  const fa = $('fa-' + uid);
+  if (!fa) return;
+  let html = `<a class="btn btn-dl" href="/download/${filename}" download>
+    <i class="fas fa-download"></i> Скачать</a>`;
+  if (type === 'text') {
+    html = `<button class="btn btn-eye" onclick="showText('${uid}')">
+      <i class="fas fa-eye"></i> Просмотр</button>` + html;
+  }
+  fa.innerHTML = html;
+
+  const chk = $('chk-' + uid);
+  if (chk) { chk.disabled = false; chk.checked = true; }
+
+  doneFilesMap.set(uid, filename);
+  updateZipBar();
+}
+
+function updateZipBar() {
+  const allDone    = document.querySelectorAll(DONE_SEL);
+  const allChecked = document.querySelectorAll(DONE_SEL + ':checked');
+  $('zip-count').textContent = allChecked.length;
+  $('zip-total').textContent = allDone.length;
+  if (allDone.length >= 1) $('zip-bar').classList.add('show');
+}
+
+function selectAllFiles(state) {
+  document.querySelectorAll(DONE_SEL).forEach(c => c.checked = state);
+  updateZipBar();
+}
+
+async function downloadZip() {
+  const filenames = [...document.querySelectorAll(DONE_SEL + ':checked')]
+    .map(c => doneFilesMap.get(c.id.replace('chk-', '')))
+    .filter(Boolean);
+
+  if (!filenames.length) {
+    alert('Не выбрано ни одного файла. Отметь нужные чекбоксами.');
+    return;
+  }
+
+  const btn = $('zip-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span> Упаковка…';
+
+  try {
+    const res = await fetch('/download-zip', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filenames }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      alert('Ошибка: ' + (err.error || res.statusText));
+      return;
+    }
+
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = 'mediaconverter_results.zip';
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert('Ошибка загрузки: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-file-zipper"></i> Скачать ZIP';
+  }
+}
+
+// ── Modal ──────────────────────────────────────────────────────────────────
+function showText(uid) {
+  const r = textResults[uid];
+  if (!r) return;
+  $('m-title').textContent = r.filename;
+  $('m-body').textContent  = r.text + (r.text.length >= 800 ? '\n\n… (скачайте файл для полного текста)' : '');
+  $('m-dl').href = '/download/' + r.filename;
+  $('overlay').classList.add('show');
+}
+
+function closeModal() {
+  $('overlay').classList.remove('show');
+}
+
+function copyText() {
+  const text = $('m-body').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.btn-copy');
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-check"></i> Скопировано!';
+    setTimeout(() => btn.innerHTML = orig, 2000);
+  });
+}
+
+$('overlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeModal();
+});
+
+// ── Utils ──────────────────────────────────────────────────────────────────
+function fileEmoji(name) {
+  const ext = name.split('.').pop().toLowerCase();
+  if (['mp4','mkv','avi','mov','wmv','flv','webm','m4v','ts'].includes(ext)) return '🎬';
+  if (['mp3','wav','ogg','flac','m4a','aac','wma','opus'].includes(ext))     return '🎵';
+  return '📄';
+}
+
+function fmtSize(b) {
+  if (b < 1024)         return b + ' B';
+  if (b < 1024 ** 2)   return (b / 1024).toFixed(1) + ' KB';
+  if (b < 1024 ** 3)   return (b / 1024 ** 2).toFixed(1) + ' MB';
+  return (b / 1024 ** 3).toFixed(2) + ' GB';
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
